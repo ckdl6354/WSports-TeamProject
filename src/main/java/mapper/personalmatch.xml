@@ -1,0 +1,806 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.personalmatch">
+	<select id="selectNowPersonalMatchList"
+		parameterType="util.MatchSearchInfo" resultType="personalmatch">
+		SELECT
+		m.*,
+		COUNT(p.participant_id) AS current_people,
+		CASE
+		WHEN
+		f.match_id IS NOT NULL THEN 1
+		ELSE 0
+		END AS favorite
+		FROM personal_match
+		m
+		LEFT JOIN
+			personal_match_participant p
+			ON m.personal_match_id = p.personal_match_id
+			AND p.status = '결제완료'
+		LEFT JOIN favorite f
+		ON f.match_id =
+		m.personal_match_id
+		AND f.match_type = 'Personal'
+		AND f.user_id =
+		#{userId}
+		WHERE 1=1
+		AND coalesce(m.deleted, 0) = 0
+		AND m.status ='모집중'
+		<if test="searchType == 'RECOMAND'">
+			<if test="sports != null and sports.length > 0">
+				AND m.sport IN
+				<foreach collection="sports" item="sport" open="("
+					separator="," close=")">
+					#{sport}
+				</foreach>
+			</if>
+			<if test="regions != null and regions.length > 0">
+				AND (
+				<foreach collection="regions" item="region" separator=" OR ">
+					m.region LIKE CONCAT('%', #{region}, '%')
+				</foreach>
+				)
+			</if>
+		</if>
+		GROUP BY m.personal_match_id
+		<choose>
+			<when test="searchType == 'RECOMAND'">
+				ORDER BY m.created_at DESC
+			</when>
+			<when test="searchType == 'POPULAR'">
+				ORDER BY current_people DESC
+			</when>
+
+			<when test="searchType == 'END'">
+				ORDER BY m.deadline ASC
+			</when>
+			<when test="searchType == 'NEW'">
+				ORDER BY m.created_at DESC
+			</when>
+		</choose>
+		LIMIT 4;
+	</select>
+
+	<select id="selectLatestPersonalMatchList" parameterType="map"
+		resultType="personalmatch">
+		SELECT
+		m.*,
+		COUNT(p.participant_id) AS current_people,
+		CASE
+		WHEN
+		f.match_id IS NOT NULL THEN 1
+		ELSE 0
+		END AS favorite
+		FROM personal_match
+		m
+		LEFT JOIN personal_match_participant p
+			ON m.personal_match_id = p.personal_match_id
+			AND p.status = '결제완료'
+		LEFT JOIN favorite f
+		ON f.match_id =
+		m.personal_match_id
+		AND f.match_type = 'Personal'
+		AND f.user_id =
+		#{userId}
+		WHERE coalesce(m.deleted, 0) = 0
+		AND m.status = '모집중'
+		<if test="excludeIds != null and excludeIds.size() > 0">
+			AND m.personal_match_id NOT IN
+			<foreach collection="excludeIds" item="id" open="("
+				separator="," close=")">
+				#{id}
+			</foreach>
+		</if>
+		GROUP BY m.personal_match_id
+		ORDER BY m.created_at DESC
+		LIMIT #{limit}
+	</select>
+
+	<select id="selectNormalPersonalMatchList"
+		parameterType="util.MatchSearchInfo" resultType="personalmatch">
+		SELECT
+		m.*,
+		COUNT(p.participant_id) AS current_people,
+		CASE
+		WHEN
+		f.match_id IS NOT NULL THEN 1
+		ELSE 0
+		END AS favorite
+		FROM personal_match
+		m
+		LEFT JOIN personal_match_participant p
+			ON m.personal_match_id = p.personal_match_id
+			AND p.status = '결제완료'
+		LEFT JOIN favorite f
+		ON
+		f.match_id = m.personal_match_id
+		AND f.match_type = 'Personal'
+		AND
+		f.user_id = #{userId}
+		WHERE 1=1
+		AND coalesce(m.deleted, 0) = 0
+		AND
+		m.status ='모집중'
+		<if test="sports != null and sports.length > 0">
+			AND m.sport IN
+			<foreach collection="sports" item="sport" open="("
+				separator="," close=")">
+				#{sport}
+			</foreach>
+		</if>
+
+		<if test="ages != null and ages.length > 0">
+			AND (
+			<foreach collection="ages" item="age" separator=" OR ">
+				<choose>
+					<when test="age == '20대'">
+						m.age_20s = true
+					</when>
+					<when test="age == '30대'">
+						m.age_30s = true
+					</when>
+					<when test="age == '40대'">
+						m.age_40s = true
+					</when>
+					<when test="age == '50대'">
+						m.age_50s = true
+					</when>
+					<when test="age == '60대'">
+						m.age_60_plus = true
+					</when>
+				</choose>
+			</foreach>
+			)
+		</if>
+
+		<if test="skills != null and skills.length > 0">
+			AND (
+			<foreach collection="skills" item="skill" separator=" OR ">
+				<choose>
+					<when test="skill == '입문'">
+						m.skill_intro = true
+					</when>
+					<when test="skill == '초급'">
+						m.skill_beginner = true
+					</when>
+					<when test="skill == '중급'">
+						m.skill_intermediate = true
+					</when>
+					<when test="skill == '상급'">
+						m.skill_advanced = true
+					</when>
+				</choose>
+			</foreach>
+			)
+		</if>
+
+		<if test="gender != null and gender != ''">
+			AND m.gender = #{gender}
+		</if>
+
+		<if test="regions != null and regions.length > 0">
+			AND m.region IN
+			<foreach collection="regions" item="region" open="("
+				separator="," close=")">
+				#{region}
+			</foreach>
+		</if>
+
+		<if test="startDate != null">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+
+		<if test="endDate != null">
+			AND m.match_date &lt;= #{endDate}
+		</if>
+
+		<if test="keyword != null and keyword != ''">
+			AND (
+			m.title LIKE CONCAT('%', #{keyword}, '%')
+			OR m.content
+			LIKE CONCAT('%', #{keyword}, '%')
+			)
+		</if>
+
+		GROUP BY m.personal_match_id
+		ORDER BY m.created_at DESC
+		LIMIT
+		#{startIndex}, 4
+	</select>
+
+	<!--지도기반 검색 -->
+	<select id="selectMapPersonalMatchList"
+		parameterType="util.MatchSearchInfo" resultType="personalmatch">
+		SELECT
+		m.*,
+		COUNT(p.participant_id) AS current_people,
+		CASE
+		WHEN
+		f.match_id IS NOT NULL THEN 1
+		ELSE 0
+		END AS favorite
+		FROM personal_match
+		m
+		LEFT JOIN personal_match_participant p
+			ON m.personal_match_id = p.personal_match_id
+			AND p.status = '결제완료'
+		LEFT JOIN favorite f
+		ON f.match_id =
+		m.personal_match_id
+		AND f.match_type = 'Personal'
+		AND f.user_id =
+		#{userId}
+		WHERE m.latitude BETWEEN #{minLat} AND #{maxLat}
+		AND
+		m.longitude BETWEEN #{minLng} AND #{maxLng}
+		AND coalesce(m.deleted, 0)=
+		0
+		AND m.status ='모집중'
+		<if test="sports != null and sports.length > 0">
+			AND m.sport IN
+			<foreach collection="sports" item="sport" open="("
+				separator="," close=")">
+				#{sport}
+			</foreach>
+		</if>
+
+		<if test="ages != null and ages.length > 0">
+			AND (
+			<foreach collection="ages" item="age" separator=" OR ">
+				<choose>
+					<when test="age == '20대'">
+						m.age_20s = true
+					</when>
+					<when test="age == '30대'">
+						m.age_30s = true
+					</when>
+					<when test="age == '40대'">
+						m.age_40s = true
+					</when>
+					<when test="age == '50대'">
+						m.age_50s = true
+					</when>
+					<when test="age == '60대'">
+						m.age_60_plus = true
+					</when>
+				</choose>
+			</foreach>
+			)
+		</if>
+
+		<if test="skills != null and skills.length > 0">
+			AND (
+			<foreach collection="skills" item="skill" separator=" OR ">
+				<choose>
+					<when test="skill == '입문'">
+						m.skill_intro = true
+					</when>
+					<when test="skill == '초급'">
+						m.skill_beginner = true
+					</when>
+					<when test="skill == '중급'">
+						m.skill_intermediate = true
+					</when>
+					<when test="skill == '상급'">
+						m.skill_advanced = true
+					</when>
+				</choose>
+			</foreach>
+			)
+		</if>
+
+		<if test="gender != null and gender != ''">
+			AND m.gender = #{gender}
+		</if>
+
+		<if test="startDate != null">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+
+		<if test="endDate != null">
+			AND m.match_date &lt;= #{endDate}
+		</if>
+
+		GROUP BY m.personal_match_id
+		ORDER BY m.created_at DESC
+	</select>
+
+
+	<!-- 마이페이지 참여 경기 목록 조회 -->
+	<select id="selectMyPagePersonalMatchList" parameterType="map"
+		resultType="personalmatch">
+		SELECT m.*,
+		p.applied_at AS appliedAt,
+		m.min_people AS minPeople,
+		m.max_people AS maxPeople,
+		(SELECT COUNT(*)
+		FROM
+		personal_match_participant cp
+		WHERE cp.personal_match_id =
+		m.personal_match_id
+		AND cp.status = '결제완료') AS currentPeople,
+		p.status
+		AS participantStatus,
+		CASE WHEN f.favorite_id IS NULL THEN 0 ELSE 1 END
+		AS favorite
+		FROM personal_match_participant p
+		JOIN personal_match m
+		ON
+		m.personal_match_id = p.personal_match_id
+		LEFT JOIN favorite f
+		ON
+		f.match_id = m.personal_match_id
+		AND f.user_id = #{userId}
+		AND
+		f.match_type = 'Personal'
+		WHERE p.user_id = #{userId}
+		AND p.status IN
+		('결제완료', '취소')
+		AND coalesce(m.deleted, 0) = 0
+		<if test="sport != null and sport != ''">
+			AND m.sport = #{sport}
+		</if>
+		<if test="status != null and status != ''">
+			AND m.status = #{status}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			AND m.match_date &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+		</if>
+		ORDER BY appliedAt DESC, m.personal_match_id DESC
+		LIMIT #{size} OFFSET
+		#{offset}
+	</select>
+
+	<!-- 마이페이지 참여 경기 목록 번호 조회 -->
+	<select id="selectMyPagePersonalMatchCnt" parameterType="map"
+		resultType="int">
+		SELECT COUNT(*)
+		FROM personal_match_participant p
+		JOIN personal_match m
+		ON m.personal_match_id = p.personal_match_id
+		WHERE p.user_id =
+		#{userId}
+		AND p.status IN ('결제완료', '취소')
+		AND coalesce(m.deleted, 0) = 0
+		<if test="sport != null and sport != ''">
+			AND m.sport = #{sport}
+		</if>
+		<if test="status != null and status != ''">
+			AND m.status = #{status}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			AND m.match_date &lt;= #{endDate}
+		</if>
+	</select>
+
+	<!-- 내가만든 경기 목록 조회 -->
+	<select id="selectMyPageCreatedPersonalMatchList"
+		parameterType="map" resultType="personalmatch">
+		SELECT m.*,
+		m.min_people AS minPeople,
+		m.max_people AS maxPeople,
+		(SELECT COUNT(*)
+		FROM personal_match_participant cp
+		WHERE
+		cp.personal_match_id = m.personal_match_id
+		AND cp.status = '결제완료') AS
+		currentPeople,
+		CASE WHEN f.favorite_id IS NULL THEN 0 ELSE 1 END AS
+		favorite
+		FROM personal_match m
+		LEFT JOIN favorite f
+		ON f.match_id =
+		m.personal_match_id
+		AND f.user_id = #{userId}
+		AND f.match_type =
+		'Personal'
+		WHERE m.user_id = #{userId}
+		AND coalesce(m.deleted, 0) = 0
+		<if test="sport != null and sport != ''">
+			AND m.sport = #{sport}
+		</if>
+		<if test="status != null and status != ''">
+			AND m.status = #{status}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			AND m.match_date &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+		</if>
+		ORDER BY m.created_at DESC, m.personal_match_id DESC
+		LIMIT #{size}
+		OFFSET #{offset}
+	</select>
+
+	<!-- 내가만든 경기 목록 갯수 조회 -->
+	<select id="selectMyPageCreatedPersonalMatchCnt"
+		parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM personal_match m
+		WHERE m.user_id = #{userId}
+		AND
+		coalesce(m.deleted, 0) = 0
+		<if test="startDate != null and startDate != ''">
+			AND m.match_date &gt;= #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			AND m.match_date &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+		</if>
+		<if test="startDate != null and startDate != ''"> AND m.match_date &gt;= #{startDate} </if>
+		<if test="endDate != null and endDate != ''"> AND m.match_date &lt;= #{endDate} </if>
+	</select>
+
+	<!--경기 상세 조회 -->
+	<select id="selectPersonalMatch" parameterType="personalMatch"
+		resultType="personalMatch">
+		SELECT
+		m.*,
+		u.nickname,
+		u.profile_image,
+		COUNT(p.participant_id) AS current_people,
+		CASE
+		WHEN f.match_id IS NOT
+		NULL THEN 1
+		ELSE 0
+		END AS favorite
+		FROM personal_match m
+		LEFT JOIN
+		personal_match_participant p
+		ON m.personal_match_id =
+		p.personal_match_id
+		AND p.status = '결제완료'
+		LEFT JOIN user u
+		ON m.user_id =
+		u.user_id
+		LEFT JOIN favorite f
+		ON f.match_id = m.personal_match_id
+		AND
+		f.match_type = 'Personal'
+		AND f.user_id = #{userId}
+		WHERE
+		m.personal_match_id = #{personalMatchId}
+			AND coalesce(m.deleted, 0) = 0
+		GROUP BY m.personal_match_id
+		ORDER BY m.created_at DESC
+	</select>
+
+	<insert id="insertPersonalMatch" parameterType="personalMatch"
+		useGeneratedKeys="true" keyProperty="personalMatchId">
+		INSERT INTO personal_match (
+		user_id,
+		sport,
+		title,
+		address,
+		region,
+		place_name,
+		match_date,
+		start_time,
+		end_time,
+		latitude,
+		longitude,
+		participation_fee,
+		fee,
+		min_people,
+		max_people,
+		deadline,
+		gender,
+		age_20s,
+		age_30s,
+		age_40s,
+		age_50s,
+		age_60_plus,
+		skill_intro,
+		skill_beginner,
+		skill_intermediate,
+		skill_advanced,
+		content,
+		image,
+		image1,
+		image2,
+		image3,
+		image4,
+		image5,
+		created_at,
+		updated_at,
+		deleted,
+		status
+		)
+		VALUES (
+		#{userId},
+		#{sport},
+		#{title},
+		#{address},
+		#{region},
+		#{placeName},
+		#{matchDate},
+		#{startTime},
+		#{endTime},
+		#{latitude},
+		#{longitude},
+		#{participationFee},
+		#{fee},
+		#{minPeople},
+		#{maxPeople},
+		#{deadline},
+		#{gender},
+		#{age20s},
+		#{age30s},
+		#{age40s},
+		#{age50s},
+		#{age60Plus},
+		#{skillIntro},
+		#{skillBeginner},
+		#{skillIntermediate},
+		#{skillAdvanced},
+		#{content},
+		#{image1},
+		#{image1},
+		#{image2},
+		#{image3},
+		#{image4},
+		#{image5},
+		NOW(),
+		NOW(),
+		#{deleted},
+		#{status}
+		)
+	</insert>
+
+	<update id="updatePersonalMatch" parameterType="personalMatch">
+
+		UPDATE personal_match
+		SET
+		sport = #{sport},
+		title = #{title},
+		address =
+		#{address},
+		region = #{region},
+		place_name = #{placeName},
+		match_date =
+		#{matchDate},
+		start_time = #{startTime},
+		end_time = #{endTime},
+		latitude
+		= #{latitude},
+		longitude = #{longitude},
+		participation_fee =
+		#{participationFee},
+		fee = #{fee},
+		min_people = #{minPeople},
+		max_people
+		= #{maxPeople},
+		deadline = #{deadline},
+		gender = #{gender},
+		age_20s =
+		#{age20s},
+		age_30s = #{age30s},
+		age_40s = #{age40s},
+		age_50s = #{age50s},
+		age_60_plus = #{age60Plus},
+		skill_intro = #{skillIntro},
+		skill_beginner
+		= #{skillBeginner},
+		skill_intermediate = #{skillIntermediate},
+		skill_advanced = #{skillAdvanced},
+		content = #{content},
+		<if test="image1 != null">
+			image = #{image1},
+			image1 = #{image1},
+		</if>
+		<if test="image2 != null">
+			image2 = #{image2},
+		</if>
+		<if test="image3 != null">
+			image3 = #{image3},
+		</if>
+		<if test="image4 != null">
+			image4 = #{image4},
+		</if>
+
+		<if test="image5 != null">
+			image5 = #{image5},
+		</if>
+		updated_at = NOW(),
+		deleted = #{deleted},
+		status = #{status}
+		WHERE
+		personal_match_id = #{personalMatchId}
+	</update>
+
+	<update id="updatePersonalMatchStatus"
+		parameterType="personalMatch">
+		UPDATE personal_match
+		SET
+		<if test="deleted != null">
+			deleted = #{deleted},
+			deleted_at = NOW(),
+		</if>
+		status = #{status},
+		updated_at = NOW()
+		WHERE personal_match_id =
+		#{personalMatchId}
+	</update>
+
+	<select id="selectMyPagePersonalMatchDates" parameterType="map"
+		resultType="string">
+		SELECT DISTINCT DATE_FORMAT(m.match_date, '%Y-%m-%d')
+		FROM
+		personal_match_participant p
+		JOIN personal_match m
+		ON
+		m.personal_match_id = p.personal_match_id
+		WHERE p.user_id = #{userId}
+		AND p.status IN ('결제완료', '취소')
+		AND coalesce(m.deleted, 0) = 0
+		<if test="sport != null and sport != ''">
+			AND m.sport = #{sport}
+		</if>
+		<if test="status != null and status != ''">
+			AND m.status = #{status}
+		</if>
+	</select>
+	<select id="selectMyPageCreatedPersonalMatchDates"
+		parameterType="map" resultType="string">
+		SELECT DISTINCT DATE_FORMAT(m.match_date, '%Y-%m-%d')
+		FROM
+		personal_match m
+		WHERE m.user_id = #{userId}
+		AND coalesce(m.deleted, 0)
+		= 0
+		<if test="sport != null and sport != ''">
+			AND m.sport = #{sport}
+		</if>
+		<if test="status != null and status != ''">
+			AND m.status = #{status}
+		</if>
+	</select>
+
+	<!-- 관리자 사이드 바 진행된 경기수 세기 개인 -->
+	<select id="selectMatchCntPersonal" resultType="Long">
+		select count(*)
+		from personal_match
+		where status = '모집중'
+		AND coalesce(deleted, 0) = 0
+	</select>
+
+
+
+
+	<!--스케줄러 -->
+	<!-- 스케줄러 : 모집 마감 지났는데 최소 인원 미달인 개인 경기 -->
+	<select id="selectExpiredUnderMin" resultType="personalMatch">
+		select
+		m.personal_match_id, m.user_id, m.title
+		from personal_match m
+		where
+		m.status = '모집중'
+		and coalesce(m.deleted, 0) = 0
+		and m.deadline &lt;=
+		now()
+		and (
+		select
+		count(*)
+		from personal_match_participant p
+		where
+		p.personal_match_id =
+		m.personal_match_id
+		and p.status = '결제완료') &lt;
+		m.min_people
+	</select>
+	<!-- 스케줄러 : 최소 인원 미달 경기 취소 -->
+	<update id="updateStatusToUnderMinCancel" parameterType="Long">
+		update
+		personal_match
+		set status = '경기 취소',
+		updated_at = now()
+		where
+		personal_match_id = #{matchId}
+		and status = '모집중'
+		and
+		deleted = 0
+	</update>
+
+	<!--스케줄러 : 마감시간인데 최소 인원 채운 것 조회 -->
+	<select id="selectExpiredSuccess" resultType="personalMatch">
+		SELECT
+		m.personal_match_id, m.user_id, m.title
+		FROM personal_match m
+		WHERE
+			m.status = '모집중'
+			AND coalesce(m.deleted, 0) = 0
+			AND m.deadline &lt;= NOW()
+			AND (
+				SELECT COUNT(*)
+				FROM personal_match_participant p
+				WHERE
+				p.personal_match_id = m.personal_match_id
+				AND p.status = '결제완료' 
+			) &gt;= m.min_people
+	</select>
+
+	<!--스케줄러 : 모집마감으로 업데이트 -->
+	<update id="updateStatusToExpired" parameterType="Long">
+		update
+		personal_match
+		set
+			status = '모집 마감',
+			updated_at = now()
+		where
+			personal_match_id = #{personalMatchId}
+			and status = '모집중'
+			and
+			coalesce(deleted, 0) = 0
+	</update>
+
+	<!--스케줄러 : 모집 마강 이면서 경기 종료 시간이 된 경기 (정상 모집마감 경기) -->
+	<select id="selectFinishedSuccess" resultType="personalMatch">
+		SELECT
+		personal_match_id, user_id, title, participation_fee, fee
+		FROM
+		personal_match
+		WHERE status = '모집 마감'
+		AND coalesce(deleted, 0) = 0
+		AND TIMESTAMP(match_date, end_time) &lt;= NOW();
+	</select>
+	<!--스케줄러 : 경기 종료로 업데이트 -->
+	<update id="updateStatusToFinished" parameterType="Long">
+		update
+		personal_match
+		set
+		status = '경기 종료',
+		updated_at = now()
+		where
+		personal_match_id = #{personalMatchId}
+		and status = '모집 마감'
+		and
+		coalesce(deleted, 0) = 0
+	</update>
+
+
+	<!--호스트 경기취소 -->
+	<update id="updateStatusCancelOfHost" parameterType="Long">
+		update
+		personal_match
+		set status = '경기 취소',
+		updated_at = now()
+		where
+		personal_match_id = #{matchId}
+		and status = '모집중'
+		and
+		and
+		coalesce(deleted, 0) = 0
+	</update>
+	<!--관리자 경기삭제 -->
+	<update id="updateStatusDeleteOfAdmin" parameterType="Long">
+		update
+		personal_match
+		set status = '경기 취소',
+		deleted = 1,
+		updated_at = now(),
+		deleted_at = now()
+		where personal_match_id = #{matchId}
+		and status =
+		'모집중'
+		and
+		deleted = 0
+		and status = '모집중'
+		and coalesce(deleted, 0) = 0
+	</update>
+
+
+
+
+
+
+
+
+</mapper>
+

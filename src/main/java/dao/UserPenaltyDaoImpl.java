@@ -1,0 +1,149 @@
+package dao;
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.ibatis.session.SqlSession;
+
+import config.MybatisSqlSessionFactory;
+
+public class UserPenaltyDaoImpl implements UserPenaltyDao {
+
+	@Override
+	public List<Map<String, Object>> selectAdminMemberList(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.userpenalty.selectAdminMemberList", param);
+		}catch(Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	@Override
+	public Integer selectAdminMemberCnt(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.userpenalty.selectAdminMemberCnt", param);
+		} catch(Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	//관리자 회원 상세정보
+	@Override
+	public List<Map<String, Object>> selectAdminMemberDetailList(Long userId) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.userpenalty.selectAdminMemberDetailList", userId);
+		} catch(Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	
+	//관리자 신고 조치
+	@Override
+	public void insertUserPenalty(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()){
+			try {
+				// 현재 점수 이어받기 (기록 없으면 0)
+				Integer score = sqlSession.selectOne("mapper.userpenalty.selectLatestScore", param);
+				param.put("score", score == null ? 0 : score);
+
+				sqlSession.insert("mapper.userpenalty.insertUserPenalty", param);
+				sqlSession.update("mapper.userpenalty.updateUserPenalty", param);
+				sqlSession.commit();
+			} catch(Exception e) {
+				sqlSession.rollback();
+				throw e;
+			}
+		}
+	}
+	
+	//관리자 영구정지
+	@Override
+	public void insertUserPermanentPenalty(Map<String, Object> param) throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			try {
+				// 현재 점수 이어받기 (기록 없으면 0)
+				Integer score = sqlSession.selectOne("mapper.userpenalty.selectLatestScore", param);
+				param.put("score", score == null ? 0 : score);
+
+				// 영구정지 기록 추가
+				sqlSession.insert("mapper.userpenalty.insertUserPermanentPenalty", param);
+				// 회원 상태를 정지로
+				sqlSession.update("mapper.userpenalty.updateUserPenalty", param);
+
+				sqlSession.commit();
+			} catch (Exception e) {
+				sqlSession.rollback();
+				throw e;
+			}
+		}
+	}
+	//관리자 페널티 점수 조정
+	@Override
+	public void insertChangeUserPenalty(Map<String, Object> param) throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			try {
+				// 현재 점수 (기록 없으면 0) - 기존 쿼리 재사용
+				Integer latest = sqlSession.selectOne("mapper.userpenalty.selectLatestScore", param);
+				int current = (latest == null) ? 0 : latest;
+
+				// 조정 후 점수 (0 아래로는 안 내려가게)
+				int change = (int) param.get("change");
+				param.put("score", Math.max(0, current + change)); //0아래로는 안 내려가게
+
+				sqlSession.insert("mapper.userpenalty.insertChangeUserPenalty", param);
+				sqlSession.commit();
+			} catch (Exception e) {
+				sqlSession.rollback();
+				throw e;
+			}
+		}
+	}
+	//스케줄러 : 자동 정지 대상 회원
+	@Override
+	public List<Map<String, Object>> selectAutoSuspendTargets() throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.userpenalty.selectAutoSuspendTargets");
+		}
+	}
+	//스케줄러 : 자동 정지 부여 (기존 쿼리 2개를 한 트랜잭션으로)
+	@Override
+	public void insertAutoSuspend(Map<String, Object> param) throws Exception {
+		SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession();
+		try {
+			sqlSession.insert("mapper.userpenalty.insertUserPenalty", param);
+			sqlSession.update("mapper.userpenalty.updateUserPenalty", param);
+			sqlSession.commit();
+		} catch (Exception e) {
+			sqlSession.rollback();
+			throw e;
+		} finally {
+			sqlSession.close();
+		}
+	}
+	//스케줄러 : 영구정지 검토 알림 대상 회원 (100점 이상)
+	@Override
+	public List<Map<String, Object>> selectReviewTargets() throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.userpenalty.selectReviewTargets");
+		}
+	}
+
+	//스케줄러 : 관리자 회원 id 목록 (알림 받을 사람)
+	@Override
+	public List<Long> selectAdminUserIds() throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.userpenalty.selectAdminUserIds");
+		}
+	}
+	
+	@Override
+	public Map<String, Object> selectUserSuspension(Long userId) throws Exception {
+		try (SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.userpenalty.selectUserSuspension", userId);
+		}
+	}
+
+}

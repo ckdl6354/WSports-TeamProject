@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.personalpayment">
+	<!-- 총 매출 -->
+	<select id="totalRevenuePersonal" resultType="Long">
+		select ifnull(sum(total_amount),0) as totalRevenue
+		from personal_payment
+		where payment_status = 'DONE' 
+	</select>
+	
+	<!-- 총 수익 -->
+	<select id="totalProfitPersonal" resultType="Long">
+		select floor(ifnull(sum(total_amount), 0) * 0.08) as totalProfitPersonal
+		from personal_payment
+		where payment_status = 'DONE'
+	</select>
+	
+	<!-- 이번달 월간 매출 -->
+	<select id="monthlyRevenuePersonal" resultType="Long">
+		select ifnull(sum(total_amount), 0) as month_revenue <!-- 최종 결과 -->
+		from personal_payment
+		where payment_status = 'DONE'
+		and year(approved_at) = year(curdate())
+		and month(approved_at) = month(curdate())
+	</select>
+	
+	<!-- 이번달 월간 수익 -->
+	<select id="monthlyProfitPersonal" resultType="Long">
+		select floor(ifnull(sum(total_amount), 0) * 0.08) as month_revenue <!-- 최종 결과 -->
+		from personal_payment
+		where payment_status = 'DONE'
+		and year(approved_at) = year(curdate())
+		and month(approved_at) = month(curdate())
+	</select>
+	
+	<!-- 이번달을 포함한 최근 6개월간의 월간 매출 -->
+	<select id="sixMonthlyRevenuePersonal" resultType="Long">
+		select ifnull(sum(total_amount), 0) as month_revenue <!-- 최종 결과 -->
+		from personal_payment
+		where payment_status = 'DONE'
+		and approved_at >= date_format(curdate(), '%Y-%m-01') - interval #{n} month <!-- 숫자만 바꿔서 호출 --> 
+		and approved_at &lt; date_format(curdate(), '%Y-%m-01') - interval #{n} month + Interval 1 month<!-- 숫자만 바꿔서 호출 -->
+	</select>
+	
+	<!-- 이번달을 포함한 최근 6개월간의 월간 수익 -->
+	<select id="sixMonthlyProfitPersonal" resultType="Long">
+		select floor(ifnull(sum(total_amount), 0)*0.08) as month_revenue <!-- 최종 결과 -->
+		from personal_payment
+		where payment_status = 'DONE'
+		and approved_at >= date_format(curdate(), '%Y-%m-01') - interval #{n} month  <!-- 숫자만 바꿔서 호출 -->
+		and approved_at &lt; date_format(curdate(), '%Y-%m-01') - interval #{n} month + Interval 1 month<!-- 숫자만 바꿔서 호출 -->
+	</select>
+	
+	<!-- 기간 내 결제 건수 -->
+	<select id="selectPeriodPaymentCntPersonal" parameterType="map" resultType="Long">
+		select count(*) as period_cnt
+		from personal_payment
+		where payment_status = 'DONE'
+		and approved_at >= #{startDate}
+		and approved_at &lt; #{endDate} + interval 1 day
+	</select>
+	
+	<!-- 기간 내 총 매출 -->
+	<select id="selectPeriodRevenuePersonal" parameterType="map" resultType="Long">
+		select ifnull(sum(total_amount), 0) as month_revenue
+		from personal_payment
+		where payment_status = 'DONE'
+		and approved_at >= #{startDate}
+		and approved_at &lt; #{endDate} + interval 1 day
+	</select>
+	
+	<!-- 기간 내 총 수익 -->
+	<select id="selectPeriodProfitPersonal" parameterType="map" resultType="Long">
+		select floor(ifnull(sum(total_amount), 0)*0.08) as month_revenue
+		from personal_payment
+		where payment_status = 'DONE'
+		and approved_at >= #{startDate}
+		and approved_at &lt; #{endDate} + interval 1 day
+	</select>
+	
+	<!-- 개인 경기 결제 내역 -->
+	<insert id="insertPersonalPaymentHistory" parameterType="PersonalPayment" useGeneratedKeys="true" keyProperty="paymentId" keyColumn="payment_id">
+	INSERT INTO personal_payment (
+            order_id,
+            payment_key,
+            order_name,
+            payment_status,
+            payment_method,
+            total_amount,
+            balance,
+            currency,
+            card_company,
+            card_number,
+            installment_months,
+            easy_payment_provider,
+            receipt_url,
+            requested_at,
+            approved_at,
+            raw_response
+        ) VALUES (
+            #{orderId},
+            #{paymentKey},
+            #{orderName},
+            #{paymentStatus},
+            #{paymentMethod},
+            #{totalAmount},
+            #{balance},
+            #{currency},
+            #{cardCompany},
+            #{cardNumber},
+            #{installmentMonths},
+            #{easyPaymentProvider},
+            #{receiptUrl},
+            #{requestedAt},
+            #{approvedAt},
+            #{rawResponse}
+        )		
+	</insert>
+	<!-- 결제 내역 조회 -->
+	<select id="selectPersonalPaymentHistory" parameterType="String" resultType="PersonalPayment">
+		select * from personal_payment where payment_key=#{paymentKey}
+	</select>
+	<!-- 검증 -->
+	<select id="selectPersonalMatchTotalAmount" parameterType="int" resultType="int">
+    	select participation_fee + fee
+    	from personal_match
+    	where personal_match_id = #{matchId}
+	</select>
+	
+	<!-- 결제 완료 참가자 등록 -->
+	<insert id="insertPaidParticipant" parameterType="map">
+    	INSERT INTO personal_match_participant (
+        	user_id, personal_match_id, attendance, status, payment_id, applied_at
+    	) VALUES (
+        	#{userId}, #{matchId}, 1, '결제완료', #{paymentId}, NOW()
+    	)
+	</insert>
+	
+	
+	<!-- 경기 정보 -->
+	<select id="selectPersonalPaymentMatch" parameterType="String" resultType="personalMatch">
+    	select m.*
+    	from personal_payment pp
+    	join personal_match_participant p on p.payment_id = pp.payment_id
+    	join personal_match m on m.personal_match_id = p.personal_match_id
+    	where pp.payment_key = #{paymentKey}
+	</select>
+	<!-- 중복 참가 확인 -->
+	<select id="selectJoinedCnt" parameterType="map" resultType="int">
+		select count(*)
+		from personal_match_participant
+		where user_id = #{userId}
+		and personal_match_id = #{matchId}
+		and (status is null or status &lt;&gt; '취소')
+	</select>
+	<!-- 개인 경기 모집자, 제목 -->
+	<select id="selectPersonalMatchWriter" resultType="map">
+		select user_id, title
+		from personal_match
+		where personal_match_id = #{matchId}
+	</select>
+	
+	<!-- 환불 대상 조회 : 본인 결제만 조회 -->
+	<select id="selectRefundTarget" parameterType="map" resultType="map">
+		select pay.payment_id, pay.payment_status,
+			   m.personal_match_id, m.user_id, m.title, m.deadline
+		from personal_payment pay
+		join personal_match_participant p on p.payment_id = pay.payment_id
+		join personal_match m on m.personal_match_id = p.personal_match_id
+		where pay.payment_key = #{paymentKey}
+		and p.user_id = #{userId}
+	</select>
+	
+	<!-- 결제 취소 -->
+	<update id="updatePaymentCanceled" parameterType="map">
+		update personal_payment
+		set payment_status = 'CANCELED',
+			balance = 0,
+			canceled_at = #{canceledAt},
+			cancel_reason = #{cancelReason},
+			cancel_amount = #{cancelAmount}
+		where payment_id = #{paymentId}
+	</update>
+	<!-- 참가 취소 처리 -->
+	<update id="updateParticipantCanceled" parameterType="map">
+		update personal_match_participant
+		set status = '취소',
+			cancelled_at = now(),
+			cancel_reason = #{cancelReason}
+		where payment_id = #{paymentId}
+		and status = '결제완료'
+	</update>
+	<!-- 모집자 결제 완료 시 deleted 0으로 업데이트 -->
+	<update id="updatePersonalMatchOpen" parameterType="map">
+		update personal_match
+		set deleted = 0
+		where personal_match_id = #{matchId}
+		and user_id = #{userId}
+		and deleted = 1
+	</update>
+	<!-- 스케줄러 : 경기의 결제완료 참가자 결제 목록 (자동 환불 대상) -->
+	<select id="selectPaidPaymentsByMatch" parameterType="Long" resultType="map">
+		select pay.payment_id, pay.payment_key, p.user_id
+		from personal_match_participant p
+		join personal_payment pay on pay.payment_id = p.payment_id
+		where p.personal_match_id = #{matchId}
+		and p.status = '결제완료'
+		and pay.payment_status = 'DONE'
+	</select>
+	
+	
+	<!--paymentKey 가져오기-->
+	<select id="selectPaymentKey" resultType="String">
+	    SELECT p.payment_key
+		FROM personal_match_participant pm
+		JOIN personal_payment p ON pm.payment_id = p.payment_id
+		WHERE pm.user_id = #{userId}
+		  AND pm.personal_match_id = #{matchId}
+		  AND pm.status = '결제완료'
+		ORDER BY participant_id DESC
+		LIMIT 1
+	</select>
+	
+	<!--매치 아이디로 paymentKey List 가져오기 안씀-->
+	<select id="selectLatestPaymentKeysByMatchId" parameterType="Long" resultType="string">
+	    SELECT p.payment_key
+	    FROM personal_match_participant pm
+	    JOIN personal_payment p
+	        ON pm.payment_id = p.payment_id
+	    WHERE pm.personal_match_id = #{matchId}
+	      AND pm.status = '결제완료'
+	      AND pm.participant_iZd = (
+	          SELECT MAX(pm2.participant_id)
+	          FROM personal_match_participant pm2
+	          WHERE pm2.personal_match_id = pm.personal_match_id
+	            AND pm2.user_id = pm.user_id
+	            AND pm2.status = '결제완료'
+	      )
+	</select>
+
+</mapper>

@@ -1,0 +1,105 @@
+package service.member;
+
+import java.io.File;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.Part;
+
+import dao.UserDao;
+import dao.UserDaoImpl;
+import dao.UserPenaltyDao;
+import dao.UserPenaltyDaoImpl;
+import dto.User;
+
+public class MemberServiceImpl implements MemberService {
+	private UserDao userDao;
+	private UserPenaltyDao userPenaltyDao;
+	
+	public MemberServiceImpl() {
+		userDao = new UserDaoImpl();
+		userPenaltyDao = new UserPenaltyDaoImpl();
+	}
+
+	@Override
+	public User mypageEdit(User user) throws Exception {
+		userDao.updateMypage(user);
+		User updateUser = userDao.selectLoginId(user.getLoginId());
+		return updateUser;
+	}
+
+	@Override
+	public User profileEdit(User user, String uploadPath, Part profileImage, boolean deleteImg) throws Exception {
+		String oldImage = userDao.selectLoginId(user.getLoginId()).getProfileImage();
+		
+		String fileName = (profileImage != null) ? profileImage.getSubmittedFileName() : null;
+		boolean hasNewFile = fileName != null && !fileName.isEmpty();
+		
+		if(hasNewFile) {
+			String original = Paths.get(fileName).getFileName().toString();
+			fileName = user.getLoginId() + "_" + original;
+			
+			File uploadDir = new File(uploadPath);
+			if(!uploadDir.exists()) uploadDir.mkdir();
+			profileImage.write(uploadPath+File.separator+fileName);
+			user.setProfileImage(fileName);
+		} else if (deleteImg) {
+			user.setProfileImage("");
+		}
+		userDao.updateProfile(user);
+		
+		boolean sameName = hasNewFile && fileName.equals(oldImage);
+		if((hasNewFile || deleteImg) && oldImage != null && !oldImage.isEmpty() && !sameName) {
+			new File(uploadPath, oldImage).delete();
+		}
+		return userDao.selectLoginId(user.getLoginId());
+	}
+	
+	@Override
+	public boolean withdraw(Long userId) throws Exception {
+		return userDao.withdraw(userId);
+	}
+	
+	@Override
+	public boolean passwordChange(Long userId, String oldPassword, String newPassword) throws Exception {
+		Map<String, Object> param = new HashMap<>();
+		param.put("userId", userId);
+		param.put("oldPassword", oldPassword);
+		param.put("newPassword", newPassword);
+		return userDao.passwordChange(param);
+	}	
+	
+	// 공개프로필
+	@Override
+	public Map<String, Object> publicProfile(Long userId) throws Exception {
+		Map<String, Object> param = new HashMap<>();
+		param.put("userId", userId);
+		return userDao.publicProfile(param);
+	}
+	
+	// 공개프로필 팀
+	@Override
+	public List<Map<String, Object>> publicProfileTeams(Long userId) throws Exception {
+		Map<String, Object> param = new HashMap<>();
+		param.put("userId", userId);
+		return userDao.publicProfileTeams(param);
+	}
+	
+	
+
+	@Override
+	public String getSuspensionMessage(Long userId) throws Exception {
+		Map<String, Object> s = userPenaltyDao.selectUserSuspension(userId);
+		if (s == null || ((Number) s.get("cnt")).intValue() == 0) {
+			return null;
+		}
+		Object perm = s.get("permanent");
+		if (perm != null && ((Number) perm).intValue() == 1) {
+			return "영구 정지된 계정이라 경기 모집·참가, 팀 활동, 후기 작성을 할 수 없어요.";
+		}
+		return String.valueOf(s.get("endAt")).substring(0, 16)
+				+ "까지 경기 모집·참가, 팀 활동, 후기 작성을 할 수 없어요.";
+	}
+}

@@ -1,0 +1,134 @@
+package dao;
+
+import org.apache.ibatis.session.SqlSession;
+
+import config.MybatisSqlSessionFactory;
+import dto.Report;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.ibatis.session.SqlSession;
+
+import config.MybatisSqlSessionFactory;
+
+public class ReportDaoImpl implements ReportDao {
+	//관리자 신고관리 리스트
+	@Override
+	public List<Map<String, Object>> selectAdminReportList(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.report.selectAdminReportList", param);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	//관리자 신고관리 개수
+	@Override
+	public Integer selectAdminReportCnt(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectAdminReportCnt", param);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	//관리자 신고 답변
+	@Override
+	public Integer updateAdminReportAnswer(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.updateAdminReportAnswer", param);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	//특정 신고 상세
+	@Override
+	public Map<String, Object> selectAdminReportDetail(Long reportId) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectAdminReportDetail", reportId);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	//관리자 사이드 바 - 처리대기 개수
+	@Override
+	public Integer selectAdminReportWaitCnt() throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectAdminReportWaitCnt");
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	@Override
+	public void insertReport(Report report) throws Exception {
+		SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession();
+		try {
+			sqlSession.insert("mapper.report.insertReport", report);
+			sqlSession.commit();
+		} catch(Exception e) {
+			e.printStackTrace();
+			sqlSession.rollback();
+			throw e;
+		} finally {
+			sqlSession.close();
+		}		
+	}
+	
+	@Override
+	public List<Map<String, Object>> selectReportList(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectList("mapper.report.selectReportList",param);
+		} catch(Exception e) {
+			throw e;
+		}
+	}
+	
+	@Override
+	public Integer selectReportCnt(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectReportCnt",param);
+		} catch(Exception e) {
+			throw e;
+		}
+	}
+	//관리자 사이드바 - 총 신고 개수
+	@Override
+	public Integer selectTotalReportCnt() throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectTotalReportCnt");
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	
+	@Override
+	public Map<String, Object> selectDetailReport(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectDetailReport", param);
+		} catch(Exception e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public Map<String, Object> selectTarget(Map<String, Object> param) throws Exception {
+		try(SqlSession sqlSession = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+			return sqlSession.selectOne("mapper.report.selectTarget", param);
+		} catch(Exception e) {
+			throw e;
+		}
+	}
+
+	//관리자 신고관리 회원, 팀, 개인-팀 경기 모집글, 후기글 번호 유무 확인
+	@Override
+	public Integer countReportTarget(Map<String, Object> param) {
+		try (SqlSession session = MybatisSqlSessionFactory.getSqlSessionFactory().openSession()) {
+	        return session.selectOne("mapper.report.countReportTarget", param);
+	    }
+	}
+}

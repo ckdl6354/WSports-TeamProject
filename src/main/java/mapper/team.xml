@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.team">
+	<insert id="insertTeam" parameterType="team" useGeneratedKeys="true" keyProperty="teamId">
+		insert into team (
+							team_name, 
+							profile_image, 
+							description, 
+							skill, 
+							sport, 
+							gender, 
+							created_at, 
+							deleted, 
+							region1, 
+							region2, 
+							region3, 
+							age_20s, 
+							age_30s, 
+							age_40s, 
+							age_50s, 
+							age_60_plus, 
+							day_mon, 
+							day_tue, 
+							day_wed, 
+							day_thu, 
+							day_fri, 
+							day_sat, 
+							day_sun, 
+							time_06_09, 
+							time_09_12, 
+							time_12_18, 
+							time_18_22, 
+							time_22_06, 
+							activity_image1,
+							activity_image2, 
+							activity_image3, 
+							activity_image4, 
+							activity_image5	
+						) values (
+							#{teamName}, 
+							#{profileImage}, 
+							#{description}, 
+							#{skill}, 
+							#{sport}, 
+							#{gender}, 
+							NOW(), 
+							false, 
+							#{region1}, 
+							#{region2}, 
+							#{region3}, 
+							#{age20s}, 
+							#{age30s}, 
+							#{age40s}, 
+							#{age50s}, 
+							#{age60Plus}, 
+							#{dayMon}, 
+							#{dayTue}, 
+							#{dayWed}, 
+							#{dayThu}, 
+							#{dayFri}, 
+							#{daySat}, 
+							#{daySun}, 
+							#{time0609}, 
+							#{time0912}, 
+							#{time1218}, 
+							#{time1822}, 
+							#{time2206}, 
+							#{activityImage1},
+							#{activityImage2}, 
+							#{activityImage3}, 
+							#{activityImage4}, 
+							#{activityImage5}
+						)		
+	</insert>
+	
+	<select id="selectTeamList" parameterType="teamsearchcondition" resultType="team">
+		select 
+		t.team_id, t.team_name , t.profile_image, t.skill, t.sport, t.gender, t.region1, t.region2, t.region3, 
+		t.age_20s, t.age_30s, t.age_40s, t.age_50s, t.age_60_plus, 
+		t.day_mon, t.day_tue, t.day_wed, t.day_thu, t.day_fri, t.day_sat, t.day_sun,
+		t.time_06_09, t.time_09_12, t.time_12_18, t.time_18_22, t.time_22_06,
+		(
+			select count(*)
+			from team_user tu
+			where tu.team_id = t.team_id and tu.withdrawn = false
+		) as current_people
+		from team t
+		WHERE COALESCE(t.deleted, false) = false
+		<if test="sports != null and sports.length > 0">
+		    AND t.sport IN
+		    <foreach collection="sports" item="sport" open="(" separator="," close=")">
+		        #{sport}
+		    </foreach>
+		</if>
+		<if test="gender != null and gender != ''  and gender != '성별 무관'">
+			    AND (
+				        t.gender = #{gender}
+				        OR t.gender = '성별 무관'
+				    )
+		</if>
+		<if test="days != null and days.length > 0">
+		    <foreach collection="days"
+		             item="day"
+		             open="AND ("
+		             separator=" OR "
+		             close=")">
+		        <choose>
+		            <when test='day == "월"'>
+		                t.day_mon = true
+		            </when>
+		
+		            <when test='day == "화"'>
+		                t.day_tue = true
+		            </when>
+		
+		            <when test='day == "수"'>
+		                t.day_wed = true
+		            </when>
+		
+		            <when test='day == "목"'>
+		                t.day_thu = true
+		            </when>
+		
+		            <when test='day == "금"'>
+		                t.day_fri = true
+		            </when>
+		
+		            <when test='day == "토"'>
+		                t.day_sat = true
+		            </when>
+		
+		            <when test='day == "일"'>
+		                t.day_sun = true
+		            </when>
+		        </choose>
+		    </foreach>
+		</if>
+		<if test="skills != null and skills.length > 0">
+		    AND t.skill IN
+		    <foreach collection="skills"
+		             item="skill"
+		             open="("
+		             separator=","
+		             close=")">
+		        #{skill}
+		    </foreach>
+		</if>
+		<if test="regions != null and regions.length > 0">
+		    AND (
+		        <foreach collection="regions"
+		                 item="region"
+		                 separator=" OR ">
+		            (
+		                t.region1 = #{region}
+		                OR t.region2 = #{region}
+		                OR t.region3 = #{region}
+		            )
+		        </foreach>
+		    )
+		</if>
+		<if test="keyword != null and keyword != ''">
+		    AND (
+		        t.team_name LIKE CONCAT('%', #{keyword}, '%')
+		        OR t.description LIKE CONCAT('%', #{keyword}, '%')
+		    )
+		</if>
+		<if test="ages != null and ages.length > 0">
+						AND (
+				t.age_60_plus = true
+				<foreach collection="ages" item="a">
+					<choose>
+						<when test="a == '20대'">OR t.age_20s = true</when>
+						<when test="a == '30대'">OR t.age_30s = true</when>
+						<when test="a == '40대'">OR t.age_40s = true</when>
+						<when test="a == '50대 이상'">OR t.age_50s = true</when>
+					</choose>
+				</foreach>
+			)
+		</if>
+		<if test="times != null and times.length > 0">
+			AND (
+				<foreach collection="times" item="tm" separator=" OR ">
+					<choose>
+						<when test="tm == '아침'">t.time_06_09 = true</when>
+						<when test="tm == '오전'">t.time_09_12 = true</when>
+						<when test="tm == '오후'">t.time_12_18 = true</when>
+						<when test="tm == '저녁'">t.time_18_22 = true</when>
+						<when test="tm == '야간'">t.time_22_06 = true</when>
+						<otherwise>1 = 0</otherwise>
+					</choose>
+				</foreach>
+			)
+		</if>
+		<choose>
+		    <when test="sort != null and sort == 'member'">
+		        ORDER BY current_people DESC
+		    </when>
+		    <otherwise>
+		        ORDER BY t.created_at DESC
+		    </otherwise>
+		</choose>
+		limit #{offset}, 12 
+	</select>
+	
+	<select id="selectTeamListCnt" parameterType="teamsearchcondition" resultType="int">
+		select count(*)
+		from team t
+		WHERE COALESCE(t.deleted, false) = false
+		<if test="sports != null and sports.length > 0">
+		    AND t.sport IN
+		    <foreach collection="sports" item="sport" open="(" separator="," close=")">
+		        #{sport}
+		    </foreach>
+		</if>
+		<if test="gender != null and gender != ''  and gender != '성별 무관'">
+			    AND (
+				        t.gender = #{gender}
+				        OR t.gender = '성별 무관'
+				    )
+		</if>
+		<if test="days != null and days.length > 0">
+		    <foreach collection="days"
+		             item="day"
+		             open="AND ("
+		             separator=" OR "
+		             close=")">
+		        <choose>
+		            <when test='day == "월"'>
+		                t.day_mon = true
+		            </when>
+		
+		            <when test='day == "화"'>
+		                t.day_tue = true
+		            </when>
+		
+		            <when test='day == "수"'>
+		                t.day_wed = true
+		            </when>
+		
+		            <when test='day == "목"'>
+		                t.day_thu = true
+		            </when>
+		
+		            <when test='day == "금"'>
+		                t.day_fri = true
+		            </when>
+		
+		            <when test='day == "토"'>
+		                t.day_sat = true
+		            </when>
+		
+		            <when test='day == "일"'>
+		                t.day_sun = true
+		            </when>
+		        </choose>
+		    </foreach>
+		</if>
+		<if test="skills != null and skills.length > 0">
+		    AND t.skill IN
+		    <foreach collection="skills"
+		             item="skill"
+		             open="("
+		             separator=","
+		             close=")">
+		        #{skill}
+		    </foreach>
+		</if>
+		<if test="regions != null and regions.length > 0">
+		    AND (
+		        <foreach collection="regions"
+		                 item="region"
+		                 separator=" OR ">
+		            (
+		                t.region1 = #{region}
+		                OR t.region2 = #{region}
+		                OR t.region3 = #{region}
+		            )
+		        </foreach>
+		    )
+		</if>
+		<if test="keyword != null and keyword != ''">
+		    AND (
+		        t.team_name LIKE CONCAT('%', #{keyword}, '%')
+		        OR t.description LIKE CONCAT('%', #{keyword}, '%')
+		    )
+		</if>
+		<if test="ages != null and ages.length > 0">
+						AND (
+				t.age_60_plus = true
+				<foreach collection="ages" item="a">
+					<choose>
+						<when test="a == '20대'">OR t.age_20s = true</when>
+						<when test="a == '30대'">OR t.age_30s = true</when>
+						<when test="a == '40대'">OR t.age_40s = true</when>
+						<when test="a == '50대 이상'">OR t.age_50s = true</when>
+					</choose>
+				</foreach>
+			)
+		</if>
+		<if test="times != null and times.length > 0">
+			AND (
+				<foreach collection="times" item="tm" separator=" OR ">
+					<choose>
+						<when test="tm == '아침'">t.time_06_09 = true</when>
+						<when test="tm == '오전'">t.time_09_12 = true</when>
+						<when test="tm == '오후'">t.time_12_18 = true</when>
+						<when test="tm == '저녁'">t.time_18_22 = true</when>
+						<when test="tm == '야간'">t.time_22_06 = true</when>
+						<otherwise>1 = 0</otherwise>
+					</choose>
+				</foreach>
+			)
+		</if>
+	</select>
+
+	<select id="selectTeam" parameterType="Long" resultType="team">
+		select
+		t.team_id, t.team_name, t.profile_image, t.description, t.skill,
+		t.sport, t.gender, t.region1, t.region2, t.region3,
+		t.age_20s,
+		t.age_30s, t.age_40s, t.age_50s, t.age_60_plus,
+		t.day_mon, t.day_tue,
+		t.day_wed, t.day_thu, t.day_fri, t.day_sat, t.day_sun,
+		t.time_06_09,
+		t.time_09_12, t.time_12_18, t.time_18_22, t.time_22_06,
+		t.activity_image1, t.activity_image2, t.activity_image3,
+		t.activity_image4, t.activity_image5,
+		(
+		select count(*)
+		from team_user tu
+		where tu.team_id = t.team_id and tu.withdrawn = false
+		) as
+		current_people,
+		(
+		select round(avg(tr.score), 1)
+		from team_rating tr
+		where tr.team_id = t.team_id
+		) as team_rating,
+		(
+		select count(*)
+		from
+		team_rating tr
+		where tr.team_id = t.team_id
+		) as team_rating_count
+		from
+		team t
+		where t.team_id = #{teamId} and COALESCE(t.deleted, false) = false
+	</select>
+
+	<select id="selectTeamCaptainUserId" parameterType="Long" resultType="Long">
+		select tu.user_id
+		from team t
+		join team_user tu
+		on t.team_id = tu.team_id
+		where tu.team_role = 'CAPTAIN' and tu.withdrawn = false and tu.team_id = #{teamId}
+		and COALESCE(t.deleted, false) = false
+	</select>
+
+	<update id="updateTeam" parameterType="team">
+		update team set
+			team_name = #{teamName},
+			profile_image = #{profileImage},
+			description = #{description},
+			skill = #{skill}, 
+			gender = #{gender}, 
+			region1 = #{region1}, 
+			region2 = #{region2}, 
+			region3 = #{region3}, 
+			age_20s = #{age20s}, 
+			age_30s = #{age30s}, 
+			age_40s = #{age40s}, 
+			age_50s = #{age50s}, 
+			age_60_plus = #{age60Plus}, 
+			day_mon = #{dayMon}, 
+			day_tue = #{dayTue}, 
+			day_wed = #{dayWed}, 
+			day_thu = #{dayThu}, 
+			day_fri = #{dayFri}, 
+			day_sat = #{daySat}, 
+			day_sun = #{daySun}, 
+			time_06_09 = #{time0609}, 
+			time_09_12 = #{time0912}, 
+			time_12_18 = #{time1218}, 
+			time_18_22 = #{time1822}, 
+			time_22_06 = #{time2206}, 
+			activity_image1 = #{activityImage1},
+			activity_image2 = #{activityImage2}, 
+			activity_image3 = #{activityImage3}, 
+			activity_image4 = #{activityImage4}, 
+			activity_image5 = #{activityImage5}	
+		where team_id=#{teamId}
+	</update>
+	
+
+	<select id="selectTeamInfoByUserManager" parameterType="Long" resultType="team">
+		select t.*
+		from team_user tu
+		join team t on t.team_id = tu.team_id
+		where tu.user_id = #{userId}
+		  and tu.team_role in ('CAPTAIN', 'VICE_CAPTAIN')
+		  and tu.withdrawn = 0
+		  and COALESCE(t.deleted, false) = false
+	</select>
+	
+	<select id="selectTeamInfoByUserManagerSport" parameterType="Map" resultType="team">
+		select t.*
+		from team_user tu
+		join team t on t.team_id = tu.team_id
+		where tu.user_id = #{userId}
+		  and t.sport = #{sport}
+		  and tu.team_role in ('CAPTAIN', 'VICE_CAPTAIN')
+		  and tu.withdrawn = 0
+		  and COALESCE(t.deleted, false) = false
+	</select>
+	
+
+	<!-- 관리자 사이드 바 팀 개수 세기 -->
+	<select id="selectTeamCnt" resultType="Long">
+		select count(*) from team
+		where COALESCE(deleted, false) = false
+	</select>
+	
+	<select id="selectNowTeamList" parameterType="teamsearchcondition" resultType="team">
+		SELECT
+	        t.*,
+	        COUNT(tu.team_user_id) AS current_people
+	    FROM team t
+	    LEFT JOIN team_user tu
+	        ON t.team_id = tu.team_id
+	        AND (tu.withdrawn IS NULL OR tu.withdrawn = FALSE)
+	    WHERE t.deleted = FALSE
+	    <if test="searchType == 'RECOMAND'">
+	        <if test="sports != null and sports.length > 0">
+	            AND t.sport IN
+	            <foreach collection="sports"
+	                     item="sport"
+	                     open="("
+	                     separator=","
+	                     close=")">
+	                #{sport}
+	            </foreach>
+	        </if>
+	    </if>
+	    GROUP BY t.team_id
+	    ORDER BY t.created_at DESC
+	    LIMIT 4;
+	</select>
+	
+	<select id="selectTeamMatchParticipantsProfileList" parameterType="Long" resultType="team">
+		select 
+			t.team_id, t.team_name, t.region1, t.region2, t.region3, t.sport, t.profile_image, t.skill,
+		   (select round(avg(tr.score), 1) from team_rating tr where tr.team_id = t.team_id) as team_rating,
+	       (select count(*)                from team_rating tr where tr.team_id = t.team_id) as team_rating_count,
+	       (
+			select count(*)
+			from team_user tu
+			where tu.team_id = t.team_id and tu.withdrawn = false
+		   ) as current_people
+		from team t
+		join team_match_participant tmp
+		on t.team_id = tmp.team_id
+		where team_match_id = #{teamMatchId}
+			and status = '결제완료'
+	</select>
+	
+	<update id="updateTeamToDelete" parameterType="map">
+		update team
+		set deleted = true, deleted_at = now(), delete_reason = #{reason}
+		where team_id = #{teamId} and COALESCE(deleted, false) = false
+	</update>
+	
+	<update id="updateAllMembersWithdrawn" parameterType="Long">
+		update team_user set withdrawn = true
+		where team_id = #{teamId} and withdrawn = false
+	</update>
+	
+	<select id="selectActiveMemberUserIds" parameterType="Long" resultType="Long">
+		select user_id from team_user
+		where team_id = #{teamId} and withdrawn = false
+	</select>
+
+</mapper>
