@@ -222,11 +222,11 @@ WSports는 아마추어 스포츠 참여자들이 개인 및 팀 단위로 경�
 ### 04. 경기 후기 게시판
 <img width="1885" height="939" alt="경기 후기 게시판 화면" src="https://github.com/user-attachments/assets/7e67f345-5ece-4fda-b775-4ca7e8a13d61" />
 
-### 05. 후기 작성 및 댓글
+### 05. 후기 작성,후기 상세 및 댓글
 **후기 작성 화면**
 <img width="1476" height="853" alt="후기 작성 화면" src="https://github.com/user-attachments/assets/d1381bd5-3e19-421b-99eb-4a6b5acacc50" />
 
-**후기 및 댓글 화면**
+**후기 상세 및 댓글 화면**
 <img width="1899" height="942" alt="스크린샷 2026-11-18 092923" src="https://github.com/user-attachments/assets/b2f59091-d911-4cbe-a7d1-7bf97f1d45bf" />
 
 
